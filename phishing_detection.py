@@ -28,10 +28,17 @@ def analyze_emails(service, pipe, label_id):
     for message in messages:
         message_id = message["id"]
         subject, sender, snippet = fetch_email_details(service, message_id)
-        cleaned_email = preprocess_email(snippet)
+        
+        # Update to unpack the two returned values from preprocess_email
+        cleaned_email, urls = preprocess_email(snippet)
+        
+        # Pass only the cleaned_email to the classification pipeline
         result = pipe(cleaned_email)
         label = result[0]["label"]
         score = result[0]["score"]
+
+        print(f"Analyzing email:\nCleaned Content: {cleaned_email}\nURLs: {urls}\nLabel: {label}\nScore: {score}")
+        
         if label == "phishing" and score > 0.9:
             apply_label(service, message_id, label_id)
             print(f"Labeled email from {sender} with subject '{subject}' as PHISHING.")
@@ -48,6 +55,10 @@ def create_label(service, label_name):
 
 def main():
     service = authenticate_gmail()
+    if not service:
+        print("Failed to authenticate Gmail API")
+        return
+    
     pipe = pipeline("text-classification", model="ealvaradob/bert-finetuned-phishing")
     label_name = "Phishing"
     label_id = get_label_id(service, label_name)
